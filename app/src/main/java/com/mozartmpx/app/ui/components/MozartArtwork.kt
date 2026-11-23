@@ -53,11 +53,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private object EmbeddedArtCache {
-    private val cache = LruCache<String, Bitmap>(24)
+    private const val MAX_ENTRIES = 8
+    private val cache = LruCache<String, Bitmap>(MAX_ENTRIES)
     fun get(key: String): Bitmap? = cache.get(key)
     fun put(key: String, bitmap: Bitmap) {
         cache.put(key, bitmap)
     }
+}
+
+private fun sampleSizeFor(width: Int, height: Int, maxDimension: Int): Int {
+    var sample = 1
+    while (maxOf(width, height) / sample > maxDimension) sample *= 2
+    return sample.coerceAtLeast(1)
 }
 
 /**
@@ -88,6 +95,7 @@ fun MozartArtwork(
         }
     }
 
+    val bitmap = embeddedBitmap
     Box(
         modifier = modifier
             .clip(shape)
@@ -112,9 +120,9 @@ fun MozartArtwork(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            embeddedBitmap != null -> {
+            bitmap != null -> {
                 Image(
-                    bitmap = embeddedBitmap!!.asImageBitmap(),
+                    bitmap = bitmap.asImageBitmap(),
                     contentDescription = contentDescription,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
@@ -139,11 +147,19 @@ private suspend fun loadEmbeddedBitmap(context: Context, trackUri: String): Bitm
         try {
             retriever.setDataSource(context, Uri.parse(trackUri))
             val bytes = retriever.embeddedPicture ?: return@withContext null
-            val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)?.also {
+
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = sampleSizeFor(bounds.outWidth, bounds.outHeight, 720)
+                inPreferredConfig = Bitmap.Config.RGB_565
+            }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.also {
                 EmbeddedArtCache.put(trackUri, it)
             }
         } catch (_: Exception) {
+            null
+        } catch (_: OutOfMemoryError) {
             null
         } finally {
             runCatching { retriever.release() }

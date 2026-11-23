@@ -42,6 +42,8 @@ class ArtworkPaletteExtractor(private val context: Context) {
                 }
             } catch (_: Exception) {
                 DefaultAlbumPalette
+            } catch (_: OutOfMemoryError) {
+                DefaultAlbumPalette
             } finally {
                 bitmap.recycle()
             }
@@ -72,6 +74,8 @@ class ArtworkPaletteExtractor(private val context: Context) {
             val bytes = retriever.embeddedPicture ?: return null
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
         } catch (_: Exception) {
+            null
+        } catch (_: OutOfMemoryError) {
             null
         } finally {
             runCatching { retriever.release() }
