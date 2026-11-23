@@ -128,12 +128,6 @@ fun NowPlayingScreen(
                     colors = listOf(topOpaqueColor, midOpaqueColor, baseBg)
                 )
             )
-            // Intercept all touch events so underlying screens cannot receive accidental taps
-            .pointerInput(Unit) {
-                detectVerticalDragGestures { _, dragAmount ->
-                    if (dragAmount > 28f) onDismiss()
-                }
-            }
             .statusBarsPadding()
             .navigationBarsPadding()
             .testTag("now_playing_screen"),
@@ -234,7 +228,20 @@ fun NowPlayingScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Box(
+                modifier = Modifier
+                    .width(48.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                    .pointerInput(onDismiss) {
+                        detectVerticalDragGestures { _, dy ->
+                            if (dy > 12f) onDismiss()
+                        }
+                    }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Crisp Hero Artwork — double tap opens the full metadata sheet
             Box(

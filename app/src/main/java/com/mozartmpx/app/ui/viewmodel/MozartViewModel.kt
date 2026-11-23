@@ -22,6 +22,7 @@ import com.mozartmpx.app.player.AudioFxController
 import com.mozartmpx.app.player.MozartPlaybackEngine
 import com.mozartmpx.app.player.PlaybackUiState
 import com.mozartmpx.app.ui.theme.AlbumPalette
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,11 +33,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 @Immutable
 data class LibraryUiState(
@@ -60,6 +65,7 @@ data class PendingDeviceDelete(
     val intentSender: IntentSender
 )
 
+@OptIn(FlowPreview::class)
 class MozartViewModel(
     private val repository: MusicRepository,
     private val smartQueueEngine: SmartQueueEngine,
@@ -72,11 +78,28 @@ class MozartViewModel(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    private val sharedAllTracks = repository.allTracks
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
+    private val debouncedQuery = _searchQuery.debounce(150L)
+    private val scanGuard = AtomicBoolean(false)
+    private val inspectSequence = AtomicInteger(0)
+
     private val _snackbarEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val snackbarEvents: SharedFlow<String> = _snackbarEvents.asSharedFlow()
 
     private val _deleteConfirmationEvents = MutableSharedFlow<PendingDeviceDelete>(extraBufferCapacity = 4)
     val deleteConfirmationEvents: SharedFlow<PendingDeviceDelete> = _deleteConfirmationEvents.asSharedFlow()
+
+    private val _pendingDeviceDelete = MutableStateFlow<PendingDeviceDelete?>(null)
+    val pendingDeviceDelete: StateFlow<PendingDeviceDelete?> = _pendingDeviceDelete.asStateFlow()
+
+    fun queueDeviceDelete(pending: PendingDeviceDelete) {
+        _pendingDeviceDelete.value = pending
+    }
+
+    fun clearPendingDeviceDelete() {
+        _pendingDeviceDelete.value = null
+    }
 
     val playbackState: StateFlow<PlaybackUiState> = playbackEngine.playbackState
     val playbackPositionMs: StateFlow<Long> = playbackEngine.positionMs
@@ -89,7 +112,7 @@ class MozartViewModel(
         initialValue = emptyList()
     )
 
-    private val derivedSessionsAndHiFi = repository.allTracks
+    private val derivedSessionsAndHiFi = sharedAllTracks
         .map { tracks ->
             DerivedCatalog(
                 smartSessions = smartQueueEngine.buildSmartSessions(tracks),
@@ -99,7 +122,7 @@ class MozartViewModel(
         .flowOn(Dispatchers.Default)
 
     private val catalogFlow = combine(
-        repository.allTracks,
+        sharedAllTracks,
         repository.artists,
         repository.albums,
         repository.folders,
@@ -146,8 +169,8 @@ class MozartViewModel(
     )
 
     val filteredSearchTracks: StateFlow<List<Track>> = combine(
-        repository.allTracks,
-        _searchQuery
+        sharedAllTracks,
+        debouncedQuery
     ) { tracks, query ->
         val q = query.trim().lowercase(Locale.ROOT)
         if (q.isEmpty()) emptyList()
@@ -177,7 +200,7 @@ class MozartViewModel(
     }
 
     fun rescanLibrary(silent: Boolean = false) {
-        if (_isScanning.value) return
+        if (!scanGuard.compareAndSet(false, true)) return
         viewModelScope.launch {
             val hadCache = repository.hasCachedTracks()
             // Only show scanning indicator if user requested manually or cache is empty
@@ -194,6 +217,7 @@ class MozartViewModel(
                 }
             } finally {
                 _isScanning.value = false
+                scanGuard.set(false)
             }
         }
     }
@@ -275,8 +299,10 @@ class MozartViewModel(
     }
 
     fun enrichTrackForInspection(track: Track, onReady: (Track) -> Unit) {
+        val sequence = inspectSequence.incrementAndGet()
         viewModelScope.launch {
-            onReady(repository.enrichTrackIfNeeded(track))
+            val enriched = runCatching { repository.enrichTrackIfNeeded(track) }.getOrDefault(track)
+            if (sequence == inspectSequence.get()) onReady(enriched)
         }
     }
 

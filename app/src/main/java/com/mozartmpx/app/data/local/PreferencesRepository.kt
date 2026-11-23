@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.mozartmpx.app.data.model.RepeatMode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
 private val Context.mozartDataStore: DataStore<Preferences> by preferencesDataStore(name = "mozart_mpx_prefs")
@@ -58,7 +59,7 @@ class PreferencesRepository(private val context: Context) {
             customBandLevelsCsv = prefs[Keys.CUSTOM_BANDS_CSV] ?: "",
             safTreeUris = prefs[Keys.SAF_TREE_URIS] ?: emptySet()
         )
-    }
+    }.catch { emit(UserAudioPreferences()) }
 
     suspend fun setCrossfadeSeconds(seconds: Int) {
         context.mozartDataStore.edit { it[Keys.CROSSFADE_SECONDS] = seconds.coerceIn(0, 10) }

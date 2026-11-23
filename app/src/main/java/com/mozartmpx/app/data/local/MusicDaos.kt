@@ -6,6 +6,13 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+data class TrackTechInfo(
+    val id: String,
+    val sampleRateHz: Int,
+    val bitrateKbps: Int,
+    val channels: Int
+)
+
 @Dao
 interface TrackDao {
     @Query(
@@ -40,6 +47,9 @@ interface TrackDao {
 
     @Query("UPDATE tracks SET sampleRateHz = :sampleRateHz, bitrateKbps = :bitrateKbps, channels = :channels WHERE id = :trackId")
     suspend fun updateTechMetadata(trackId: String, sampleRateHz: Int, bitrateKbps: Int, channels: Int)
+
+    @Query("SELECT id, sampleRateHz, bitrateKbps, channels FROM tracks WHERE sourceType = 'mediastore'")
+    suspend fun getMediaStoreTech(): List<TrackTechInfo>
 
     @Query("DELETE FROM tracks WHERE id = :trackId")
     suspend fun deleteTrackById(trackId: String)

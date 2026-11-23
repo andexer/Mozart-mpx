@@ -85,6 +85,7 @@ import com.mozartmpx.app.ui.screens.SearchScreen
 import com.mozartmpx.app.ui.screens.VIRTUAL_PLAYLIST_FAVORITES
 import com.mozartmpx.app.ui.screens.VIRTUAL_PLAYLIST_MOST_PLAYED
 import com.mozartmpx.app.ui.viewmodel.MozartViewModel
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 @Serializable data object HomeRoute
@@ -126,12 +127,14 @@ fun MozartApp(viewModel: MozartViewModel) {
     var pendingNewPlaylistTrack by remember { mutableStateOf<Track?>(null) }
     var trackPendingHideConfirm by remember { mutableStateOf<Track?>(null) }
     var trackPendingDeleteConfirm by remember { mutableStateOf<Track?>(null) }
-    var pendingSystemDeleteTrack by remember { mutableStateOf<Track?>(null) }
+    val pendingDeviceDelete by viewModel.pendingDeviceDelete.collectAsStateWithLifecycle()
 
-    val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_AUDIO
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
+    val audioPermission = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -144,10 +147,10 @@ fun MozartApp(viewModel: MozartViewModel) {
     val systemDeleteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
-        val target = pendingSystemDeleteTrack
-        pendingSystemDeleteTrack = null
+        val target = pendingDeviceDelete
+        viewModel.clearPendingDeviceDelete()
         if (result.resultCode == Activity.RESULT_OK && target != null) {
-            viewModel.onDeviceDeleteConfirmed(target)
+            viewModel.onDeviceDeleteConfirmed(target.track)
         }
     }
 
@@ -198,13 +201,13 @@ fun MozartApp(viewModel: MozartViewModel) {
 
     LaunchedEffect(Unit) {
         viewModel.snackbarEvents.collect { msg ->
-            snackbarHostState.showSnackbar(msg)
+            launch { snackbarHostState.showSnackbar(msg) }
         }
     }
 
     LaunchedEffect(Unit) {
         viewModel.deleteConfirmationEvents.collect { pending ->
-            pendingSystemDeleteTrack = pending.track
+            viewModel.queueDeviceDelete(pending)
             systemDeleteLauncher.launch(
                 IntentSenderRequest.Builder(pending.intentSender).build()
             )
@@ -350,7 +353,7 @@ fun MozartApp(viewModel: MozartViewModel) {
                         }
                     }
                 ) { innerPadding ->
-                    val listBottomPadding = PaddingValues(bottom = 16.dp)
+                    val listBottomPadding = remember { PaddingValues(bottom = 16.dp) }
                     NavHost(
                         navController = navController,
                         startDestination = HomeRoute,
@@ -489,7 +492,10 @@ fun MozartApp(viewModel: MozartViewModel) {
                         composable<PlaylistDetailRoute> { entry ->
                             val args = entry.toRoute<PlaylistDetailRoute>()
                             val playlistId = args.playlistId
-                            val customTracks by viewModel.observePlaylistTracks(playlistId)
+                            val playlistTracksFlow = remember(playlistId) {
+                                viewModel.observePlaylistTracks(playlistId)
+                            }
+                            val customTracks by playlistTracksFlow
                                 .collectAsStateWithLifecycle(initialValue = emptyList())
 
                             val (title, tracks, removable) = when (playlistId) {

@@ -97,6 +97,9 @@ class MozartPlaybackEngine(
     private var paletteJob: Job? = null
     private var smartQueueJob: Job? = null
     private var enrichJob: Job? = null
+    var onPrimaryPlayerChanged: ((Player) -> Unit)? = null
+    var onPlaybackServiceStopped: (() -> Unit)? = null
+
     private var isCrossfadeInFlight = false
     private var gaplessPreloadedTrackId: String? = null
     private var foregroundServiceStarted = false
@@ -192,16 +195,16 @@ class MozartPlaybackEngine(
     }
 
     @OptIn(UnstableApi::class)
-    private fun createPlayer(): ExoPlayer {
+    private fun createPlayer(handleAudioFocus: Boolean = true): ExoPlayer {
         return ExoPlayer.Builder(context)
-            .setAudioAttributes(audioAttributes, true)
+            .setAudioAttributes(audioAttributes, handleAudioFocus)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
     }
 
     private fun getOrCreateSecondaryPlayer(): ExoPlayer {
-        return secondaryPlayer ?: createPlayer().also { secondaryPlayer = it }
+        return secondaryPlayer ?: createPlayer(handleAudioFocus = false).also { secondaryPlayer = it }
     }
 
     fun playTrackList(
@@ -632,6 +635,7 @@ class MozartPlaybackEngine(
             secondaryPlayer = outgoing
             primaryPlayer.volume = 1f
             primaryPlayer.addListener(primaryListener)
+            onPrimaryPlayerChanged?.invoke(primaryPlayer)
 
             if (outgoingTrack != null) {
                 recordCompletionAsync(outgoingTrack, completed = true)
@@ -795,6 +799,10 @@ class MozartPlaybackEngine(
             }
             foregroundServiceStarted = true
         }
+    }
+
+    fun notifyPlaybackServiceStopped() {
+        foregroundServiceStarted = false
     }
 
     fun release() {

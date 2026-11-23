@@ -30,12 +30,11 @@ class MozartPlaybackService : MediaSessionService() {
         super.onCreate()
         createChannel()
         val engine = (application as MozartApplication).container.playbackEngine
-        updateForegroundNotification(engine.playbackState.value.currentTrack, engine.playbackState.value.isPlaying)
-
         mediaSession = MediaSession.Builder(this, engine.mediaSessionPlayer)
             .setSessionActivity(openAppPendingIntent())
             .build()
-        runCatching { onUpdateNotification(mediaSession!!, true) }
+        engine.onPrimaryPlayerChanged = { player -> mediaSession?.setPlayer(player) }
+        updateForegroundNotification(engine.playbackState.value.currentTrack, engine.playbackState.value.isPlaying)
 
         scope.launch {
             engine.playbackState.collect { state ->
@@ -89,6 +88,7 @@ class MozartPlaybackService : MediaSessionService() {
             .addAction(action(ACTION_NEXT, android.R.drawable.ic_media_next, "Siguiente"))
             .setStyle(
                 androidx.media.app.NotificationCompat.MediaStyle()
+                    .setMediaSession(mediaSession?.sessionCompatToken)
                     .setShowActionsInCompactView(0, 1, 2)
             )
             .build()
@@ -125,6 +125,8 @@ class MozartPlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         scope.cancel()
+        engine().onPrimaryPlayerChanged = null
+        engine().notifyPlaybackServiceStopped()
         mediaSession?.release()
         mediaSession = null
         super.onDestroy()

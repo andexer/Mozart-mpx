@@ -9,6 +9,7 @@ import com.mozartmpx.app.data.local.PlaylistEntity
 import com.mozartmpx.app.data.local.PlaylistTrackCrossRef
 import com.mozartmpx.app.data.local.PreferencesRepository
 import com.mozartmpx.app.data.local.TasteAffinityEntity
+import com.mozartmpx.app.data.local.TrackTechInfo
 import com.mozartmpx.app.data.local.UserAudioPreferences
 import com.mozartmpx.app.data.local.toDomain
 import com.mozartmpx.app.data.model.AlbumGroup
@@ -34,6 +35,10 @@ class MusicRepository(
     val preferencesRepository: PreferencesRepository
 ) {
     private val trackDao = database.trackDao()
+
+    private fun spanishCollator() = Collator.getInstance(Locale.forLanguageTag("es")).apply {
+        strength = Collator.SECONDARY
+    }
     private val playlistDao = database.playlistDao()
     private val historyDao = database.historyAffinityDao()
 
@@ -69,21 +74,23 @@ class MusicRepository(
         val nameCollator = Collator.getInstance(Locale.forLanguageTag("es")).apply {
             strength = Collator.SECONDARY
         }
-        tracks.groupBy { it.artist.trim().lowercase(Locale.ROOT) }
+        fun key(value: String) = nameCollator.getCollationKey(value.trim())
+            .toByteArray().joinToString("") { "%02x".format(it) }
+        tracks.groupBy { key(it.artist) }
             .values
             .map { artistTracks ->
                 val displayName = artistTracks.first().artist
                 val artistAlbums = buildAlbumGroups(artistTracks)
                 val coverTrack = artistTracks.firstOrNull { !it.artworkUri.isNullOrBlank() } ?: artistTracks.first()
                 ArtistGroup(
-                    id = displayName.trim().lowercase(Locale.ROOT),
+                    id = key(displayName),
                     name = displayName,
                     artworkUri = coverTrack.artworkUri,
                     sampleTrackUri = coverTrack.uri,
                     albumCount = artistAlbums.size,
                     trackCount = artistTracks.size,
                     albums = artistAlbums,
-                    tracks = artistTracks.sortedBy { it.title.lowercase(Locale.ROOT) }
+                    tracks = artistTracks.sortedWith(compareBy(nameCollator) { it.title })
                 )
             }
             .sortedWith(
@@ -93,6 +100,7 @@ class MusicRepository(
     }.flowOn(Dispatchers.Default)
 
     val folders: Flow<List<FolderGroup>> = allTracks.map { tracks ->
+        val collator = spanishCollator()
         tracks.groupBy { it.folderPath }
             .values
             .map { group ->
@@ -108,7 +116,7 @@ class MusicRepository(
                     tracks = sorted
                 )
             }
-            .sortedBy { it.folderName.lowercase(Locale.ROOT) }
+            .sortedWith(compareBy(collator) { it.folderName })
     }.flowOn(Dispatchers.Default)
 
     val playlists: Flow<List<PlaylistSummary>> = combine(
@@ -132,6 +140,7 @@ class MusicRepository(
     }.flowOn(Dispatchers.Default)
 
     private fun buildAlbumGroups(tracks: List<Track>): List<AlbumGroup> {
+        val collator = spanishCollator()
         return tracks.groupBy { it.albumId }
             .values
             .map { group ->
@@ -151,7 +160,7 @@ class MusicRepository(
                     tracks = sorted
                 )
             }
-            .sortedBy { it.name.lowercase(Locale.ROOT) }
+            .sortedWith(compareBy(collator) { it.name })
     }
 
     fun observePlaylistTracks(playlistId: Long): Flow<List<Track>> {
@@ -164,7 +173,22 @@ class MusicRepository(
 
     suspend fun scanDeviceLibrary(includeSafFolders: Boolean = true): Int {
         val favIds = trackDao.getFavoriteTrackIds().toSet()
-        val scannedMediaStore = scanner.scanMediaStore(favIds)
+        val scanned = runCatching { scanner.scanMediaStore(favIds) }.getOrElse { return 0 }
+        // Nunca vaciar la caché sana si el escaneo falla o devuelve cero pistas
+        // mientras existen favoritos: Suele indicar un error de permisos/consulta.
+        if (scanned.isEmpty() && favIds.isNotEmpty()) return 0
+
+        val previousTech = trackDao.getMediaStoreTech().associateBy { it.id }
+        val scannedMediaStore = scanned.map { entry ->
+            val old = previousTech[entry.id]
+            if (old != null && entry.sampleRateHz <= 44100 && old.sampleRateHz > 44100) {
+                entry.copy(
+                    sampleRateHz = old.sampleRateHz,
+                    bitrateKbps = old.bitrateKbps,
+                    channels = old.channels
+                )
+            } else entry
+        }
 
         database.withTransaction {
             trackDao.clearMediaStoreTracks()

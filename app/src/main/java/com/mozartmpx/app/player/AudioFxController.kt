@@ -9,6 +9,7 @@ import com.mozartmpx.app.data.model.EqBandInfo
 import com.mozartmpx.app.data.model.EqPreset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +30,7 @@ class AudioFxController(
     private var bassBoost: BassBoost? = null
     private var virtualizer: Virtualizer? = null
     private var attachedSessionId: Int = 0
+    private var persistJob: Job? = null
 
     private val defaultFrequencies = listOf(60, 230, 910, 3600, 14000)
 
@@ -251,7 +253,8 @@ class AudioFxController(
 
     private fun persistState(s: AudioFxState, saveCustomBands: Boolean = false) {
         val csv = if (saveCustomBands) s.bands.joinToString(",") { it.levelMb.toString() } else null
-        scope.launch {
+        persistJob?.cancel()
+        persistJob = scope.launch(Dispatchers.IO) {
             preferencesRepository.saveEqState(
                 enabled = s.enabled,
                 presetId = s.activePresetId,

@@ -38,6 +38,12 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,6 +84,11 @@ fun EqualizerHiFiSheet(
     onSetCrossfadeSeconds: (Int) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var localCrossfade by remember { mutableFloatStateOf(crossfadeSeconds.toFloat()) }
+    var crossfadeScrubbing by remember { mutableStateOf(false) }
+    LaunchedEffect(crossfadeSeconds) {
+        if (!crossfadeScrubbing) localCrossfade = crossfadeSeconds.toFloat()
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -200,17 +211,17 @@ fun EqualizerHiFiSheet(
                 ) {
                     LabeledAudioSlider(
                         title = "Refuerzo de bajos (Bass Boost)",
-                        valueText = "${(audioFxState.bassBoostStrength / 10)}%",
                         value = audioFxState.bassBoostStrength.toFloat(),
                         valueRange = 0f..1000f,
+                        valueFormatter = { "${(it.roundToInt() / 10)}%" },
                         onValueChange = { onSetBassBoost(it.roundToInt()) },
                         testTag = "eq_bass_slider"
                     )
                     LabeledAudioSlider(
                         title = "Virtualizador espacial",
-                        valueText = "${(audioFxState.virtualizerStrength / 10)}%",
                         value = audioFxState.virtualizerStrength.toFloat(),
                         valueRange = 0f..1000f,
+                        valueFormatter = { "${(it.roundToInt() / 10)}%" },
                         onValueChange = { onSetVirtualizer(it.roundToInt()) },
                         testTag = "eq_virtualizer_slider"
                     )
@@ -259,8 +270,15 @@ fun EqualizerHiFiSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Slider(
-                        value = crossfadeSeconds.toFloat(),
-                        onValueChange = { onSetCrossfadeSeconds(it.roundToInt()) },
+                        value = localCrossfade,
+                        onValueChange = {
+                            localCrossfade = it
+                            crossfadeScrubbing = true
+                        },
+                        onValueChangeFinished = {
+                            onSetCrossfadeSeconds(localCrossfade.roundToInt())
+                            crossfadeScrubbing = false
+                        },
                         valueRange = 0f..10f,
                         steps = 9,
                         colors = SliderDefaults.colors(
@@ -330,7 +348,9 @@ fun EqualizerHiFiSheet(
                         SpecRow("Formato / Códec", "${track.formatLabel} (${track.mimeType})")
                         SpecRow(
                             "Tasa de muestreo",
-                            if (track.sampleRateHz > 0) String.format("%.1f kHz (%d Hz)", track.sampleRateHz / 1000.0, track.sampleRateHz) else "—"
+                            if (track.sampleRateHz > 0) {
+                                String.format(Locale.getDefault(), "%.1f kHz (%d Hz)", track.sampleRateHz / 1000.0, track.sampleRateHz)
+                            } else "—"
                         )
                         SpecRow(
                             "Tasa de bits (Bitrate)",
@@ -355,7 +375,9 @@ fun EqualizerHiFiSheet(
                         SpecRow(
                             "Añadida",
                             DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale.getDefault())
-                                .format(Date(track.dateAdded))
+                                .format(Date(
+                                    if (track.dateAdded in 1L..99_999_999_999L) track.dateAdded * 1000L else track.dateAdded
+                                ))
                         )
                         SpecRow("ID interno", track.id)
                     }
@@ -372,13 +394,17 @@ private fun VerticalBandControl(
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var localLevel by remember { mutableFloatStateOf(band.levelMb.toFloat()) }
+    var scrubbing by remember { mutableStateOf(false) }
+    LaunchedEffect(band.levelMb) { if (!scrubbing) localLevel = band.levelMb.toFloat() }
+
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
-            text = band.dbLabel.replace(" dB", ""),
+            text = "${localLevel.roundToInt()} dB",
             style = MonoSpecStyle,
             color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1
@@ -390,8 +416,15 @@ private fun VerticalBandControl(
             contentAlignment = Alignment.Center
         ) {
             Slider(
-                value = band.levelMb.toFloat(),
-                onValueChange = { onValueChange(it.roundToInt()) },
+                value = localLevel,
+                onValueChange = {
+                    localLevel = it
+                    scrubbing = true
+                },
+                onValueChangeFinished = {
+                    onValueChange(localLevel.roundToInt())
+                    scrubbing = false
+                },
                 valueRange = band.minLevelMb.toFloat()..band.maxLevelMb.toFloat(),
                 colors = SliderDefaults.colors(
                     thumbColor = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
@@ -435,12 +468,16 @@ private fun VerticalBandControl(
 @Composable
 private fun LabeledAudioSlider(
     title: String,
-    valueText: String,
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
+    valueFormatter: (Float) -> String,
     onValueChange: (Float) -> Unit,
     testTag: String
 ) {
+    var localValue by remember { mutableFloatStateOf(value) }
+    var scrubbing by remember { mutableStateOf(false) }
+    LaunchedEffect(value) { if (!scrubbing) localValue = value }
+
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -448,11 +485,18 @@ private fun LabeledAudioSlider(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(text = title, style = MaterialTheme.typography.titleSmall)
-            Text(text = valueText, style = MonoTimerStyle, color = MaterialTheme.colorScheme.primary)
+            Text(text = valueFormatter(localValue), style = MonoTimerStyle, color = MaterialTheme.colorScheme.primary)
         }
         Slider(
-            value = value,
-            onValueChange = onValueChange,
+            value = localValue,
+            onValueChange = {
+                localValue = it
+                scrubbing = true
+            },
+            onValueChangeFinished = {
+                onValueChange(localValue)
+                scrubbing = false
+            },
             valueRange = valueRange,
             colors = SliderDefaults.colors(
                 thumbColor = MaterialTheme.colorScheme.primary,

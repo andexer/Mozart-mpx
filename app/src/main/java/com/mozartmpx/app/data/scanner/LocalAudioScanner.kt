@@ -61,8 +61,10 @@ class LocalAudioScanner(private val context: Context) {
             add(MediaStore.Audio.Media.SIZE)
             add(MediaStore.Audio.Media.DATE_ADDED)
             add(MediaStore.Audio.Media.DISPLAY_NAME)
-            @Suppress("DEPRECATION")
-            add(MediaStore.Audio.Media.DATA)
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                @Suppress("DEPRECATION")
+                add(MediaStore.Audio.Media.DATA)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 add(MediaStore.Audio.Media.RELATIVE_PATH)
             }
@@ -77,8 +79,7 @@ class LocalAudioScanner(private val context: Context) {
         val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
         val albumArtBaseUri = Uri.parse("content://media/external/audio/albumart")
 
-        runCatching {
-            context.contentResolver.query(collection, projection, selection, null, sortOrder)?.use { cursor ->
+        context.contentResolver.query(collection, projection, selection, null, sortOrder)?.use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
                 val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
                 val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
@@ -91,8 +92,10 @@ class LocalAudioScanner(private val context: Context) {
                 val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
                 val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
                 val displayCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
-                @Suppress("DEPRECATION")
-                val dataCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+                val dataCol = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    @Suppress("DEPRECATION")
+                    cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+                } else -1
                 val relPathCol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
                 } else -1
@@ -132,7 +135,9 @@ class LocalAudioScanner(private val context: Context) {
                     } else rawAlbum
 
                     val albumId = cursor.getLong(albumIdCol)
-                    val albumArtUri = ContentUris.withAppendedId(albumArtBaseUri, albumId).toString()
+                    val albumArtUri = if (albumId > 0) {
+                        ContentUris.withAppendedId(albumArtBaseUri, albumId).toString()
+                    } else null
 
                     val dataPath = if (dataCol >= 0) cursor.getString(dataCol).orEmpty() else ""
                     val relPath = if (relPathCol >= 0) cursor.getString(relPathCol).orEmpty() else ""
@@ -174,11 +179,10 @@ class LocalAudioScanner(private val context: Context) {
                         fileSizeBytes = sizeBytes,
                         artworkUri = albumArtUri,
                         isFavorite = favoriteIds.contains(trackId),
-                        dateAdded = cursor.getLong(dateCol),
+                        dateAdded = cursor.getLong(dateCol) * 1000L,
                         sourceType = "mediastore"
                     )
                 }
-            }
         }
         tracks
     }
@@ -374,7 +378,7 @@ class LocalAudioScanner(private val context: Context) {
                 fileSizeBytes = fileSize,
                 artworkUri = null,
                 isFavorite = favoriteIds.contains(id),
-                dateAdded = System.currentTimeMillis() / 1000L,
+                dateAdded = System.currentTimeMillis(),
                 sourceType = "saf"
             )
         } catch (_: Exception) {
@@ -401,7 +405,8 @@ class LocalAudioScanner(private val context: Context) {
 
     private fun detectFormatLabel(mimeType: String, fileName: String): String {
         val ext = fileName.substringAfterLast('.', "").uppercase(Locale.ROOT)
-        if (ext in setOf("FLAC", "WAV", "ALAC", "AIFF", "AIF", "MP3", "M4A", "AAC", "OGG", "OPUS", "WMA", "DSF")) {
+        if (ext == "DSF" || ext == "DFF") return "DSD"
+        if (ext in setOf("FLAC", "WAV", "ALAC", "AIFF", "AIF", "MP3", "M4A", "AAC", "OGG", "OPUS", "WMA")) {
             return if (ext == "AIF") "AIFF" else ext
         }
         val lowerMime = mimeType.lowercase(Locale.ROOT)
