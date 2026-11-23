@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,6 +80,7 @@ import com.mozartmpx.app.ui.theme.LocalAlbumPalette
 import com.mozartmpx.app.ui.theme.MonoTimerStyle
 import kotlinx.coroutines.flow.StateFlow
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NowPlayingScreen(
     playbackState: PlaybackUiState,
@@ -233,23 +236,33 @@ fun NowPlayingScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Crisp Hero Artwork
-            MozartArtwork(
-                artworkUri = track.artworkUri,
-                trackUri = track.uri,
-                contentDescription = "Portada de ${track.album}",
+            // Crisp Hero Artwork — double tap opens the full metadata sheet
+            Box(
                 modifier = Modifier
                     .fillMaxWidth(0.86f)
                     .aspectRatio(1f)
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(24.dp)
-                    ),
-                shape = RoundedCornerShape(24.dp),
-                sizePx = 720,
-                allowEmbeddedExtraction = true
-            )
+                    .combinedClickable(
+                        onClick = {},
+                        onDoubleClick = onOpenEqualizer,
+                        onLongClick = onOpenEqualizer
+                    )
+            ) {
+                MozartArtwork(
+                    artworkUri = track.artworkUri,
+                    trackUri = track.uri,
+                    contentDescription = "Portada de ${track.album}",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(24.dp)
+                        ),
+                    shape = RoundedCornerShape(24.dp),
+                    sizePx = 720,
+                    allowEmbeddedExtraction = true
+                )
+            }
 
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -291,7 +304,15 @@ fun NowPlayingScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .combinedClickable(
+                            onClick = {},
+                            onDoubleClick = onOpenEqualizer,
+                            onLongClick = onOpenEqualizer
+                        )
+                ) {
                     Text(
                         text = track.title,
                         style = MaterialTheme.typography.headlineMedium,
@@ -305,6 +326,11 @@ fun NowPlayingScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Doble toque: ficha técnica completa",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
 

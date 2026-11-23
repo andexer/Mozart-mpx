@@ -2,6 +2,10 @@
     <string name="app_name">Mozart mpx</string>
     <string name="app_tagline">Fidelidad local sin pausas</string>
 
+    <!-- Playback notification -->
+    <string name="notification_channel_playback">Reproducción</string>
+    <string name="notification_playing">Reproduciendo música</string>
+
     <!-- Navigation -->
     <string name="nav_home">Inicio</string>
     <string name="nav_albums">Álbumes</string>

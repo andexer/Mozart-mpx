@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import java.text.Collator
 import java.util.Locale
 
 class MusicRepository(
@@ -65,6 +66,9 @@ class MusicRepository(
     }.flowOn(Dispatchers.Default)
 
     val artists: Flow<List<ArtistGroup>> = allTracks.map { tracks ->
+        val nameCollator = Collator.getInstance(Locale.forLanguageTag("es")).apply {
+            strength = Collator.SECONDARY
+        }
         tracks.groupBy { it.artist.trim().lowercase(Locale.ROOT) }
             .values
             .map { artistTracks ->
@@ -83,9 +87,8 @@ class MusicRepository(
                 )
             }
             .sortedWith(
-                compareBy<ArtistGroup>({ it.name.equals("Artista desconocido", true) })
-                    .thenByDescending { it.trackCount }
-                    .thenBy { it.name.lowercase(Locale.ROOT) }
+                compareBy<ArtistGroup> { it.name.equals("Artista desconocido", true) }
+                    .then(compareBy(nameCollator) { it.name })
             )
     }.flowOn(Dispatchers.Default)
 

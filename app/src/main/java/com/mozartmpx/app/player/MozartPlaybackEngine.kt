@@ -786,7 +786,6 @@ class MozartPlaybackEngine(
 
     private fun ensureForegroundServiceStarted() {
         if (foregroundServiceStarted) return
-        foregroundServiceStarted = true
         runCatching {
             val intent = Intent(context, MozartPlaybackService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -794,6 +793,7 @@ class MozartPlaybackEngine(
             } else {
                 context.startService(intent)
             }
+            foregroundServiceStarted = true
         }
     }
 

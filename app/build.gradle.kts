@@ -13,8 +13,8 @@ android {
     applicationId = "com.mozartmpx.app"
     minSdk = 24
     targetSdk = 36
-    versionCode = 3
-    versionName = "1.2"
+    versionCode = 4
+    versionName = "1.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -80,6 +80,7 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
+  implementation(libs.androidx.media)
   implementation(libs.androidx.media3.common)
   implementation(libs.androidx.media3.exoplayer)
   implementation(libs.androidx.media3.session)

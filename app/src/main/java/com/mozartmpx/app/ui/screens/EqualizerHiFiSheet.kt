@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -56,6 +57,9 @@ import com.mozartmpx.app.data.model.formatFileSize
 import com.mozartmpx.app.ui.components.HiFiBadge
 import com.mozartmpx.app.ui.theme.MonoSpecStyle
 import com.mozartmpx.app.ui.theme.MonoTimerStyle
+import java.text.DateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -335,7 +339,25 @@ fun EqualizerHiFiSheet(
                         SpecRow("Canales", if (track.channels == 1) "Mono (1.0)" else "Estéreo (${track.channels}.0)")
                         SpecRow("Duración · Tamaño", "${formatDuration(track.durationMs)} · ${formatFileSize(track.fileSizeBytes)}")
                         SpecRow("Género · Año", "${track.genre.ifBlank { "Auto-detectado" }} · ${if (track.year > 0) track.year else "—"}")
+                        SpecRow("Álbum", track.album.ifBlank { "—" })
+                        SpecRow("Artista del álbum", track.albumArtist.ifBlank { track.artist })
+                        SpecRow("N.º de pista", if (track.trackNumber > 0) track.trackNumber.toString() else "—")
+                        SpecRow("Favorita", if (track.isFavorite) "Sí" else "No")
                         SpecRow("Carpeta local", track.folderPath)
+                        SpecRow(
+                            "Ruta / URI del archivo",
+                            track.uri.removePrefix("file://").ifBlank { "—" }
+                        )
+                        SpecRow(
+                            "Carátula",
+                            track.artworkUri?.takeIf { it.isNotBlank() } ?: "Incrustada o no disponible"
+                        )
+                        SpecRow(
+                            "Añadida",
+                            DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale.getDefault())
+                                .format(Date(track.dateAdded))
+                        )
+                        SpecRow("ID interno", track.id)
                     }
                 }
             }
@@ -456,10 +478,12 @@ private fun SpecRow(label: String, value: String) {
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = value,
-            style = MonoTimerStyle,
+            style = if (value.length > 40) MaterialTheme.typography.bodySmall else MonoTimerStyle,
             color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            textAlign = TextAlign.End,
+            maxLines = if (value.length > 40) 4 else 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
         )
     }
 }
