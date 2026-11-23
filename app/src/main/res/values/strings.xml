@@ -1,0 +1,65 @@
+<resources>
+    <string name="app_name">Mozart mpx</string>
+    <string name="app_tagline">Fidelidad local sin pausas</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Inicio</string>
+    <string name="nav_albums">Álbumes</string>
+    <string name="nav_folders">Carpetas</string>
+    <string name="nav_playlists">Listas</string>
+    <string name="nav_search">Buscar</string>
+
+    <!-- Actions & Controls -->
+    <string name="action_play">Reproducir</string>
+    <string name="action_pause">Pausar</string>
+    <string name="action_next">Siguiente pista</string>
+    <string name="action_previous">Pista anterior</string>
+    <string name="action_shuffle">Aleatorio</string>
+    <string name="action_repeat">Repetir</string>
+    <string name="action_favorite">Favorito</string>
+    <string name="action_queue">Cola inteligente</string>
+    <string name="action_equalizer">Ecualizador y Hi-Fi</string>
+    <string name="action_add_folder">Añadir carpeta</string>
+    <string name="action_import_files">Importar pistas</string>
+    <string name="action_rescan">Escanear biblioteca</string>
+    <string name="action_grant_permission">Conceder acceso al audio</string>
+    <string name="action_create_playlist">Nueva lista</string>
+    <string name="action_add_to_playlist">Añadir a lista</string>
+    <string name="action_play_next">Reproducir a continuación</string>
+    <string name="action_add_to_queue">Añadir a la cola</string>
+    <string name="action_smart_session">Sesión inteligente</string>
+    <string name="action_back">Volver</string>
+    <string name="action_close">Cerrar</string>
+    <string name="action_save">Guardar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_delete">Eliminar</string>
+    <string name="action_rename">Renombrar</string>
+
+    <!-- Sections -->
+    <string name="section_recently_played">Escuchado recientemente</string>
+    <string name="section_smart_sessions">Sesiones por ambiente</string>
+    <string name="section_featured_albums">Álbumes destacados</string>
+    <string name="section_hifi_masters">Alta fidelidad local</string>
+    <string name="section_all_albums">Tus álbumes</string>
+    <string name="section_local_folders">Carpetas locales</string>
+    <string name="section_playlists">Listas de reproducción</string>
+    <string name="section_up_next">Siguiente en cola</string>
+    <string name="section_smart_autoplay">Auto-reproducción inteligente</string>
+    <string name="section_hifi_specs">Ficha técnica Hi-Fi</string>
+
+    <!-- Empty & Permission States -->
+    <string name="empty_library_title">Tu sala de conciertos local</string>
+    <string name="empty_library_body">Mozart mpx reproduce exclusivamente tus archivos locales sin conexión a internet. Concede permiso para leer tu música o elige una carpeta del dispositivo.</string>
+    <string name="empty_search_hint">Busca canciones, artistas, álbumes, géneros o carpetas…</string>
+    <string name="empty_playlists_title">Aún no hay listas personalizadas</string>
+    <string name="empty_playlists_body">Crea una lista para organizar tus sesiones de salsa, clásica o discos en FLAC.</string>
+
+    <!-- Equalizer & Transitions -->
+    <string name="eq_title">Ecualizador &amp; Audio Hi-Fi</string>
+    <string name="eq_bass_boost">Refuerzo de bajos</string>
+    <string name="eq_virtualizer">Virtualizador espacial</string>
+    <string name="eq_crossfade">Crossfade suave</string>
+    <string name="eq_gapless_active">Sin pausas (Gapless puro)</string>
+    <string name="eq_smart_autoplay_title">Continuidad musical inteligente</string>
+    <string name="eq_smart_autoplay_subtitle">Sigue el género y artista automáticamente al terminar la cola</string>
+</resources>
