@@ -95,7 +95,10 @@ data class PlaylistTrackCrossRef(
     val addedAt: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "play_history")
+@Entity(
+    tableName = "play_history",
+    indices = [Index("trackId"), Index("playedAt")]
+)
 data class PlayHistoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val trackId: String,

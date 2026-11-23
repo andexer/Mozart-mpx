@@ -325,6 +325,7 @@ class MusicRepository(
 
     suspend fun recordPlaybackInteraction(track: Track, familyKey: String, completed: Boolean) {
         historyDao.insertHistory(PlayHistoryEntity(trackId = track.id, completed = completed))
+        historyDao.pruneHistory(System.currentTimeMillis() - 90L * 24L * 60L * 60L * 1000L)
         recordTasteSignal("track:${track.id}", completed)
         recordTasteSignal("artist:${normalizeKey(track.artist)}", completed)
         recordTasteSignal("family:$familyKey", completed)
@@ -334,22 +335,24 @@ class MusicRepository(
     }
 
     private suspend fun recordTasteSignal(key: String, completed: Boolean) {
-        val existing = historyDao.getAffinity(key)
-        val updated = if (existing == null) {
-            TasteAffinityEntity(
-                key = key,
-                completedCount = if (completed) 1 else 0,
-                skipCount = if (completed) 0 else 1,
-                lastInteractedAt = System.currentTimeMillis()
-            )
-        } else {
-            existing.copy(
-                completedCount = existing.completedCount + if (completed) 1 else 0,
-                skipCount = existing.skipCount + if (completed) 0 else 1,
-                lastInteractedAt = System.currentTimeMillis()
-            )
+        database.withTransaction {
+            val existing = historyDao.getAffinity(key)
+            val updated = if (existing == null) {
+                TasteAffinityEntity(
+                    key = key,
+                    completedCount = if (completed) 1 else 0,
+                    skipCount = if (completed) 0 else 1,
+                    lastInteractedAt = System.currentTimeMillis()
+                )
+            } else {
+                existing.copy(
+                    completedCount = existing.completedCount + if (completed) 1 else 0,
+                    skipCount = existing.skipCount + if (completed) 0 else 1,
+                    lastInteractedAt = System.currentTimeMillis()
+                )
+            }
+            historyDao.upsertAffinity(updated)
         }
-        historyDao.upsertAffinity(updated)
     }
 
     suspend fun setCrossfadeSeconds(seconds: Int) = preferencesRepository.setCrossfadeSeconds(seconds)

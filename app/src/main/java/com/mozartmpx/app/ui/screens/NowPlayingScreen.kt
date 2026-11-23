@@ -1,6 +1,8 @@
 package com.mozartmpx.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -108,14 +110,24 @@ fun NowPlayingScreen(
 
     // 100% OPAQUE gradient blended against background — ZERO bleed-through from behind!
     val baseBg = MaterialTheme.colorScheme.background
+    val animatedDominant by animateColorAsState(
+        targetValue = palette.dominant,
+        animationSpec = tween(320),
+        label = "np_dominant"
+    )
+    val animatedDark by animateColorAsState(
+        targetValue = palette.darkMuted,
+        animationSpec = tween(320),
+        label = "np_dark"
+    )
     val topOpaqueColor = lerp(
         baseBg,
-        palette.dominant,
+        animatedDominant,
         if (palette.isFromArtwork) 0.44f else 0.16f
     )
     val midOpaqueColor = lerp(
         baseBg,
-        palette.darkMuted,
+        animatedDark,
         if (palette.isFromArtwork) 0.34f else 0.10f
     )
 

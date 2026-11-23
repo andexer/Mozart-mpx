@@ -151,6 +151,9 @@ interface HistoryAffinityDao {
     @Query("DELETE FROM play_history WHERE trackId = :trackId")
     suspend fun deleteHistoryForTrack(trackId: String)
 
+    @Query("DELETE FROM play_history WHERE playedAt < :before")
+    suspend fun pruneHistory(before: Long)
+
     @Query("SELECT * FROM taste_affinity")
     fun observeAllAffinities(): Flow<List<TasteAffinityEntity>>
 
